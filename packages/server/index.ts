@@ -1,9 +1,25 @@
-
-import express, { type Response } from "express";
+import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
-import "dotenv/config";
+import path from "path";
+import dotenv from "dotenv";
+
+dotenv.config({ path: path.join(__dirname, ".env") });
+
+// --- Env Validation ---
+const REQUIRED_ENV_VARS = ["STRIPE_KEY", "DB_URL"];
+const missingVars = REQUIRED_ENV_VARS.filter(v => !process.env[v]);
+
+if (missingVars.length > 0) {
+  console.error(`
+  ❌ ERROR: Missing required environment variables:
+     ${missingVars.join(", ")}
+
+     The server cannot start without these. Please check your .env file.
+  `);
+  process.exit(1);
+}
 
 import { storeRouter }   from "./routers/store.router.ts";
 import { adminRouter }   from "./routers/admin.router.ts";
@@ -23,12 +39,12 @@ app.use(cors({
 app.use(express.json({ limit: "2mb" }));
 app.use(morgan("dev"));
 
-// ─── Health Check ───────────────────────────────────────────────────────────
+// --- Health Check ---
 app.get("/health", (_req, res) => {
   res.json({ status: "ok", mode: MODE, timestamp: new Date().toISOString() });
 });
 
-// ─── Service Mounting ───────────────────────────────────────────────────────
+// --- Service Mounting ---
 
 if (MODE === "MONOLITH" || MODE === "STOREFRONT") {
   console.log("[Server] Mounting Storefront API at /api/store");
@@ -45,7 +61,7 @@ if (MODE === "MONOLITH" || MODE === "PAYMENTS") {
   app.use("/api/payment", paymentRouter);
 }
 
-// ─── Error Handling ─────────────────────────────────────────────────────────
+// --- Error Handling ---
 
 app.use((_req, res) => {
   res.status(404).json({ error: { code: "NOT_FOUND", message: "Route not found in current service mode" } });
