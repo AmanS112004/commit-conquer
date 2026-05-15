@@ -6,6 +6,7 @@ import { AppError } from '../middleware/errorHandler';
 
 export interface Commit {
   id: string;
+  hash: string;
   message: string;
   repo: string;
   authorId?: string;
@@ -25,14 +26,48 @@ const POINT_MAP: Record<string, number> = {
   chore:     2,
 };
 
-export function calculatePoints(message: string): number {
-  if (!message) return 0;
+const DUMMY_WORDS = ["test", "dummy", "fix", "msg", "asdf", "qwerty", "placeholder"];
 
-  const match = message.match(/^([a-zA-Z]+)(\([^)]+\))?!?:/);
-  if (!match) return 1;
+export interface ValidationResult {
+  points: number;
+  isValid: boolean;
+  reason?: string;
+}
+
+export function validateAndCalculatePoints(message: string): ValidationResult {
+  if (!message || message.trim().length < 5) {
+    return { points: 0, isValid: false, reason: "Message too short" };
+  }
+
+  const match = message.match(/^([a-zA-Z]+)(\([^)]+\))?!?: (.*)$/);
+  if (!match) {
+    return { points: 1, isValid: true }; // Allow non-conventional but with low points
+  }
 
   const type = match[1].toLowerCase();
-  return POINT_MAP[type] ?? 1;
+  const scope = match[2];
+  const description = match[3].trim();
+
+  // Basic "farming" detection
+  if (description.length < 10) {
+    return { points: 0, isValid: false, reason: "Description too short (min 10 chars)" };
+  }
+
+  const isDummy = DUMMY_WORDS.some(word => description.toLowerCase() === word || description.toLowerCase().includes("test"));
+  if (isDummy && description.length < 15) {
+    return { points: 0, isValid: false, reason: "Dummy message detected" };
+  }
+
+  let points = POINT_MAP[type] ?? 1;
+  
+  // Bonus for scope
+  if (scope) points += 2;
+
+  // Bonus for length (rewarding descriptive messages)
+  if (description.length > 50) points += 5;
+  else if (description.length > 30) points += 2;
+
+  return { points, isValid: true };
 }
 
 // Module-level in-memory store.
@@ -69,18 +104,39 @@ export class CommitService {
   async create(data: {
     message: string;
     repo: string;
+    hash: string;
     authorId?: string;
   }): Promise<Commit> {
-    if (!data.message || !data.message.trim()) {
-      throw new AppError('Commit message is required', 400);
+    const { message, repo, hash, authorId } = data;
+
+    // 1. Validation
+    const validation = validateAndCalculatePoints(message);
+    if (!validation.isValid) {
+      throw new AppError(validation.reason || "Invalid commit message", 400);
+    }
+
+    // 2. Deduplication (Check by hash OR same message by same author)
+    const isDuplicate = store.some(c => 
+      c.hash === hash || 
+      (c.message === message && c.authorId === authorId && c.repo === repo)
+    );
+    if (isDuplicate) {
+      throw new AppError("Commit already submitted", 409);
+    }
+
+    // 3. Simulated Remote Verification (checking GitHub/GitLab)
+    await new Promise(r => setTimeout(r, 500)); 
+    if (hash.length < 7) {
+      throw new AppError("Invalid commit hash format", 400);
     }
 
     const commit: Commit = {
       id:        `commit-${++idCounter}`,
-      message:   data.message,
-      repo:      data.repo,
-      authorId:  data.authorId,
-      points:    calculatePoints(data.message),
+      hash,
+      message,
+      repo,
+      authorId,
+      points:    validation.points,
       createdAt: new Date(),
     };
 
