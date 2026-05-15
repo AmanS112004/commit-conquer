@@ -175,6 +175,7 @@ function Header() {
       <nav style={s.nav}>
         <NavLink to="/"           end style={navStyle}>Shop</NavLink>
         <NavLink to="/collections"    style={navStyle}>Collections</NavLink>
+        <NavLink to="/leaderboard"    style={navStyle}>Leaderboard</NavLink>
         <NavLink to="/about"          style={navStyle}>About</NavLink>
         <NavLink to="/account"        style={navStyle}>Account</NavLink>
         {/* Admin link — for hackathon convenience */}
