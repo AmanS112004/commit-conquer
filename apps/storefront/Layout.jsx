@@ -10,137 +10,20 @@ const CartDispatchCtx = createContext(null);
 
 const API = "http://localhost:4000/api/store";
 
+export function CartProvider({ children }) {
+  const [state, dispatch] = useReducer(cartReducer, { items: [], isOpen: false });
+  const derived = {
+    ...state,
+    count: state.items.reduce((n, i) => n + i.quantity, 0),
+    total: state.items.reduce((s, i) => s + i.price * i.quantity, 0),
+  };
 function CartProvider({ children }) {
-  const qc = useQueryClient();
-  const [isOpen, setIsOpen] = useState(false);
-
-  // Initialize or get cart_id from localStorage
-  const [cartId, setCartId] = useState(() => localStorage.getItem("cart_id"));
-
-  const { data: cartData, isLoading } = useQuery({
-    queryKey: ["cart", cartId],
-    queryFn: async () => {
-      if (!cartId) return null;
-      const res = await fetch(`${API}/carts/${cartId}`);
-      if (!res.ok) {
-        localStorage.removeItem("cart_id");
-        setCartId(null);
-        return null;
-      }
-      return (await res.json()).cart;
-    },
-    enabled: !!cartId,
-    staleTime: 5000, // Small stale time to encourage sync across tabs
-  });
-
-  // Mutation to create a cart
-  const createCart = useMutation({
-    mutationFn: async () => {
-      const res = await fetch(`${API}/carts`, { method: "POST", headers: { "Content-Type": "application/json" } });
-      return (await res.json()).cart;
-    },
-    onSuccess: (newCart) => {
-      localStorage.setItem("cart_id", newCart.id);
-      setCartId(newCart.id);
-      qc.setQueryData(["cart", newCart.id], newCart);
-    },
-  });
-
-  // Mutation to add item
-  const addItemMut = useMutation({
-    mutationFn: async ({ id, variantId, quantity = 1 }) => {
-      let activeCartId = cartId;
-      if (!activeCartId) {
-        const newCart = await createCart.mutateAsync();
-        activeCartId = newCart.id;
-      }
-      
-      let res = await fetch(`${API}/carts/${activeCartId}/items`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ product_id: id, variant_id: variantId ?? "default", quantity }),
-      });
-
-      // If cart not found (e.g. server restart), create new and retry once
-      if (res.status === 404) {
-        const newCart = await createCart.mutateAsync();
-        res = await fetch(`${API}/carts/${newCart.id}/items`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ product_id: id, variant_id: variantId ?? "default", quantity }),
-        });
-      }
-
-      if (!res.ok) throw new Error("Failed to add item");
-      return (await res.json()).cart;
-    },
-    onSuccess: (updatedCart) => {
-      qc.setQueryData(["cart", cartId], updatedCart);
-      qc.invalidateQueries({ queryKey: ["cart"] });
-    },
-  });
-
-  // Mutation to remove item
-  const removeItemMut = useMutation({
-    mutationFn: async ({ id }) => {
-      const res = await fetch(`${API}/carts/${cartId}/items/${id}`, { method: "DELETE" });
-      return (await res.json()).cart;
-    },
-    onSuccess: (updatedCart) => {
-      qc.setQueryData(["cart", cartId], updatedCart);
-    },
-  });
-
-  // Mutation to update quantity
-  const updateQtyMut = useMutation({
-    mutationFn: async ({ id, quantity }) => {
-      const res = await fetch(`${API}/carts/${cartId}/items/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ quantity }),
-      });
-      return (await res.json()).cart;
-    },
-    onSuccess: (updatedCart) => {
-      qc.setQueryData(["cart", cartId], updatedCart);
-    },
-  });
-
-  // Mutation to clear cart
-  const clearCartMut = useMutation({
-    mutationFn: async () => {
-      const res = await fetch(`${API}/carts/${cartId}`, { method: "DELETE" });
-      return (await res.json()).cart;
-    },
-    onSuccess: (updatedCart) => {
-      qc.setQueryData(["cart", cartId], updatedCart);
-    },
-  });
-
-  const state = useMemo(() => ({
-    items: cartData?.items ?? [],
-    total: cartData?.total ?? 0,
-    count: cartData?.items.reduce((n, i) => n + i.quantity, 0) ?? 0,
-    isOpen,
-    isLoading,
-    cart_id: cartId,
-  }), [cartData, isOpen, isLoading, cartId]);
-
-  const dispatch = useMemo(() => ({
-    addItem: (item) => addItemMut.mutate(item),
-    removeItem: (payload) => {
-      // Find the line item ID by variantId
-      const item = cartData?.items.find(i => i.variant_id === (payload.variantId ?? "default"));
-      if (item) removeItemMut.mutate({ id: item.id });
-    },
-    updateQty: (payload) => {
-      const item = cartData?.items.find(i => i.variant_id === (payload.variantId ?? "default"));
-      if (item) updateQtyMut.mutate({ id: item.id, quantity: payload.quantity });
-    },
-    clearCart: () => clearCartMut.mutate(),
-    toggleCart: (open) => setIsOpen(open ?? !isOpen),
-  }), [addItemMut, removeItemMut, updateQtyMut, clearCartMut, isOpen, cartData]);
-
+  const [state, dispatch] = useReducer(cartReducer, { items: [], isOpen: false });
+  const derived = {
+    ...state,
+    count: state.items.reduce((n, i) => n + (Number(i.quantity) || 0), 0),
+    total: state.items.reduce((s, i) => s + (Number(i.price) || 0) * (Number(i.quantity) || 0), 0),
+  };
   return (
     <CartStateCtx.Provider value={state}>
       <CartDispatchCtx.Provider value={dispatch}>
@@ -223,15 +106,13 @@ function Footer() {
 
 export default function Layout() {
   return (
-    <CartProvider>
-      <div style={s.root}>
-        <Header />
-        <main style={s.main}>
-          <Outlet />   {/* React Router renders child page here */}
-        </main>
-        <Footer />
-      </div>
-    </CartProvider>
+    <div style={s.root}>
+      <Header />
+      <main style={s.main}>
+        <Outlet />   {/* React Router renders child page here */}
+      </main>
+      <Footer />
+    </div>
   );
 }
 
