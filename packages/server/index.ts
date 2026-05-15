@@ -24,6 +24,25 @@ if (missingVars.length > 0) {
 import { storeRouter }   from "./routers/store.router.ts";
 import { adminRouter }   from "./routers/admin.router.ts";
 import { paymentRouter } from "./routers/payment.router.ts";
+import "dotenv/config";
+import { enforceEnv } from "./src/validateEnv";
+
+// ─── Validate environment variables before anything else ──────────────────────
+// Fails fast with a clear error if required vars are missing or malformed.
+enforceEnv();
+
+
+import { ProductService, ServiceError } from "../modules/products/product.service.ts";
+import { AuthService }     from "../modules/auth/auth.service.ts";
+import { CartService }     from "../modules/cart/cart.service.ts";
+import { OrderService }    from "../modules/orders/order.service.ts";
+import { PaymentService }  from "../modules/payments/payment.service.ts";
+import { InventoryService } from "../modules/inventory/inventory.service.ts";
+import { DiscountService } from "../modules/discounts/discount.service.ts";
+import { ShippingService } from "../modules/shipping/shipping.service.ts";
+import { eventBus, EVENT } from "../core/event-bus.ts";
+
+
 
 const app  = express();
 const PORT = parseInt(process.env.PORT ?? "4000", 10);
