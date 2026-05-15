@@ -177,3 +177,10 @@ adminRouter.post("/products", async (req, res) => {
     res.status(201).json({ product });
   } catch (e) { handleErr(e, res); }
 });
+
+adminRouter.patch("/products/:id", async (req, res) => {
+  try {
+    const product = await ProductService.update(req.params.id, req.body);
+    res.json({ product });
+  } catch (e) { handleErr(e, res); }
+});
