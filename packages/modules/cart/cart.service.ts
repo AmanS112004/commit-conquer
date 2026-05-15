@@ -105,6 +105,10 @@ export const CartService = {
     
     if (existingLine) {
       existingLine.quantity += quantity;
+      // Sync metadata in case product was edited since last add
+      existingLine.title         = product.title;
+      existingLine.variant_title = variant.title;
+      existingLine.price         = variant.price;
     } else {
       const line: CartItem = {
         id:            generateId("cli"),
