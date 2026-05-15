@@ -25,6 +25,26 @@ if (missingVars.length > 0) {
 import { storeRouter }   from "./routers/store.router.ts";
 import { adminRouter }   from "./routers/admin.router.ts";
 import { paymentRouter } from "./routers/payment.router.ts";
+=======
+import "dotenv/config";
+import { enforceEnv } from "./src/validateEnv";
+
+// ─── Validate environment variables before anything else ──────────────────────
+// Fails fast with a clear error if required vars are missing or malformed.
+enforceEnv();
+
+
+import { ProductService, ServiceError } from "../modules/products/product.service.ts";
+import { AuthService }     from "../modules/auth/auth.service.ts";
+import { CartService }     from "../modules/cart/cart.service.ts";
+import { OrderService }    from "../modules/orders/order.service.ts";
+import { PaymentService }  from "../modules/payments/payment.service.ts";
+import { InventoryService } from "../modules/inventory/inventory.service.ts";
+import { DiscountService } from "../modules/discounts/discount.service.ts";
+import { ShippingService } from "../modules/shipping/shipping.service.ts";
+import { eventBus, EVENT } from "../core/event-bus.ts";
+
+
 
 const app  = express();
 const PORT = parseInt(process.env.PORT ?? "4000", 10);
@@ -39,6 +59,98 @@ app.use(cors({
 }));
 app.use(express.json({ limit: "2mb" }));
 app.use(morgan("dev"));
+app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev"));
+
+
+
+declare global {
+  namespace Express {
+    interface Request {
+      customer?: ReturnType<typeof AuthService.validateToken>;
+    }
+  }
+}
+
+const authenticate: RequestHandler = (req, res, next) => {
+  const header = req.headers.authorization;
+  if (!header?.startsWith("Bearer ")) {
+    res.status(401).json(err("UNAUTHORIZED", "Missing or malformed Authorization header"));
+    return;
+  }
+  try {
+    req.customer = AuthService.validateToken(header.slice(7));
+    next();
+  } catch (e) {
+    handleErr(e, res);
+  }
+};
+
+
+const softAuthenticate: RequestHandler = (req, _res, next) => {
+  const header = req.headers.authorization;
+  if (header?.startsWith("Bearer ")) {
+    try {
+      req.customer = AuthService.validateToken(header.slice(7));
+    } catch {
+      
+    }
+  }
+  next();
+};
+
+
+const adminOnly: RequestHandler = (req, res, next) => {
+  const secret = req.headers["x-admin-secret"];
+  if (secret !== process.env.ADMIN_SECRET && process.env.NODE_ENV !== "development") {
+    res.status(403).json(err("FORBIDDEN", "Admin access required"));
+    return;
+  }
+  next();
+};
+
+
+
+function err(code: string, message: string) {
+  return { error: { code, message } };
+}
+
+function handleErr(e: unknown, res: Response) {
+  if (e instanceof ServiceError) {
+    const status = STATUS_MAP[e.code] ?? 400;
+    res.status(status).json(err(e.code, e.message));
+    return;
+  }
+  console.error("[Server] Unexpected error:", e);
+  res.status(500).json(err("INTERNAL_ERROR", "An unexpected error occurred"));
+}
+
+// Map ServiceError codes → HTTP status codes
+const STATUS_MAP: Record<string, number> = {
+  PRODUCT_NOT_FOUND:    404,
+  VARIANT_NOT_FOUND:    404,
+  CART_NOT_FOUND:       404,
+  ORDER_NOT_FOUND:      404,
+  TOO_MANY_REQUESTS:    429,
+  CUSTOMER_NOT_FOUND:   404,
+  ITEM_NOT_FOUND:       404,
+  INVALID_CREDENTIALS:  401,
+  INVALID_TOKEN:        401,
+  TOKEN_EXPIRED:        401,
+  UNAUTHORIZED:         401,
+  FORBIDDEN:            403,
+  INSUFFICIENT_STOCK:   409,
+  EMAIL_EXISTS:         409,
+  VALIDATION_ERROR:     422,
+  WEAK_PASSWORD:        422,
+  EMPTY_CART:           422,
+  MISSING_EMAIL:        422,
+  MISSING_ADDRESS:      422,
+  UPDATE_FAILED:        500,
+  DELETE_FAILED:        500,
+  INTERNAL_ERROR:       500,
+};
+
+
 
 // ─── Health Check ───────────────────────────────────────────────────────────
 app.get("/health", (_req, res) => {
