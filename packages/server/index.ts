@@ -10,6 +10,11 @@ import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
 import "dotenv/config";
+import { enforceEnv } from "./src/validateEnv";
+
+// ─── Validate environment variables before anything else ──────────────────────
+// Fails fast with a clear error if required vars are missing or malformed.
+enforceEnv();
 
 
 import { ProductService, ServiceError } from "../modules/products/product.service.ts";
@@ -140,7 +145,7 @@ app.get("/health", (_req, res) => {
 });
 
 const store = express.Router();
-app.use("/api/store", store);
+app.use("/api/v1/store", store);
 
 
 
@@ -386,7 +391,7 @@ store.get("/inventory/:variantId", (req, res) => {
 
 const admin = express.Router();
 admin.use(adminOnly);
-app.use("/api/admin", admin);
+app.use("/api/v1/admin", admin);
 
 
 
