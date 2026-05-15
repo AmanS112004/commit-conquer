@@ -19,7 +19,7 @@ async function fetchOrders(search = "", status = "all") {
     const res = await fetch(`${ADMIN}/orders?${params}`, { headers: HEADERS });
     if (res.ok) { const d = await res.json(); return d.orders ?? d.data ?? []; }
   } catch {}
-  // Demo data
+  
   const names = [["Ethan","Cole"],["Maya","Patel"],["Lucas","Kim"],["Zoe","Turner"],["Aiden","Brooks"],["Sara","Nolan"]];
   const statuses = ["pending","paid","fulfilled","cancelled","fulfilled","paid"];
   const items = [
