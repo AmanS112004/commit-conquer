@@ -20,6 +20,7 @@ beforeEach(() => {
   new CommitService()._reset([
     ...mockCommits.map((c) => ({
       ...c,
+      hash: 'mock-hash-' + c.id,
       points: c.points ?? 0,
       createdAt: c.createdAt
         ? (c.createdAt instanceof Date ? c.createdAt : new Date(c.createdAt))
@@ -131,26 +132,38 @@ describe('POST /api/commits', () => {
     const res = await request
       .post('/api/v1/commits')
       .set('Authorization', AUTH_TOKEN)
-      .send({ message: 'feat: integration test commit', repo: 'test-repo' });
+      .send({
+        message: 'feat: integration test commit with enough length',
+        repo: 'test-repo',
+        hash: 'abcdef123456',
+      });
     expect(res.status).toBe(201);
     expect(res.body.success).toBe(true);
-    expect(res.body.data.message).toBe('feat: integration test commit');
+    expect(res.body.data.message).toBe('feat: integration test commit with enough length');
   });
 
   it('assigns correct points for a feat commit', async () => {
     const res = await request
       .post('/api/v1/commits')
       .set('Authorization', AUTH_TOKEN)
-      .send({ message: 'feat: new dashboard', repo: 'repo' });
-    expect(res.body.data.points).toBe(10);
+      .send({
+        message: 'feat: new dashboard implementation for the admin portal',
+        repo: 'repo',
+        hash: 'abcdef123457',
+      });
+    expect(res.body.data.points).toBe(12); // 10 + 2
   });
 
   it('assigns correct points for a fix commit', async () => {
     const res = await request
       .post('/api/v1/commits')
       .set('Authorization', AUTH_TOKEN)
-      .send({ message: 'fix: null pointer', repo: 'repo' });
-    expect(res.body.data.points).toBe(8);
+      .send({
+        message: 'fix: null pointer exception in user profile settings',
+        repo: 'repo',
+        hash: 'abcdef123458',
+      });
+    expect(res.body.data.points).toBe(10); // 8 + 2
   });
 
   it('returns 400 when message field is missing', async () => {

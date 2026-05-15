@@ -37,7 +37,16 @@ export interface UpdateProductInput {
   category?: string;
   tags?: string[];
   status?: "published" | "draft" | "archived";
+  variants?: Array<{
+    id?: string;
+    title: string;
+    sku: string;
+    price: number;
+    inventory_quantity: number;
+    options: Record<string, string>;
+  }>;
 }
+
 
 export const ProductService = {
   list(input: ListProductsInput = {}): PaginatedResponse<Product> {
