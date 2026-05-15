@@ -4,6 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "start": "ts-node index.ts",
+    "start:storefront": "cross-env SERVICE_MODE=STOREFRONT PORT=4001 ts-node index.ts",
+    "start:admin": "cross-env SERVICE_MODE=ADMIN PORT=4002 ts-node index.ts",
+    "start:payments": "cross-env SERVICE_MODE=PAYMENTS PORT=4003 ts-node index.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
