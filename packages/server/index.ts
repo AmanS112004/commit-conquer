@@ -26,6 +26,16 @@ import { InventoryService } from "../modules/inventory/inventory.service.ts";
 import { DiscountService } from "../modules/discounts/discount.service.ts";
 import { ShippingService } from "../modules/shipping/shipping.service.ts";
 import { eventBus, EVENT } from "../core/event-bus.ts";
+import { initDatabase, closeDatabase } from "./src/db/sqlite";
+import {
+  BackupService,
+  startBackupScheduler,
+  stopBackupScheduler,
+  runStartupBackup,
+} from "./src/backup";
+
+initDatabase();
+const backupService = new BackupService();
 
 
 
@@ -136,11 +146,13 @@ const STATUS_MAP: Record<string, number> = {
 
 
 app.get("/health", (_req, res) => {
+  const backup = backupService.getStatus();
   res.json({
-    status: "ok",
+    status: backup.enabled && !backup.healthy ? "degraded" : "ok",
     uptime: process.uptime(),
     timestamp: new Date().toISOString(),
     version: "1.0.0-hackathon",
+    backup,
   });
 });
 
@@ -591,6 +603,34 @@ admin.post("/shipping-options", async (req, res) => {
     res.status(201).json({ shipping_option: option });
   } catch (e) { handleErr(e, res); }
 });
+
+admin.get("/backups/status", (_req, res) => {
+  res.json({ backup: backupService.getStatus() });
+});
+
+admin.get("/backups", (_req, res) => {
+  res.json({ backups: backupService.listBackups() });
+});
+
+admin.post("/backups", async (_req, res) => {
+  try {
+    const backup = await backupService.runBackup("manual");
+    res.status(201).json({ backup });
+  } catch (e) { handleErr(e, res); }
+});
+
+admin.post("/backups/restore", async (req, res) => {
+  try {
+    const backupId = String(req.body?.backupId ?? "");
+    if (!backupId) {
+      res.status(422).json(err("VALIDATION_ERROR", "backupId is required"));
+      return;
+    }
+    const result = await backupService.restore(backupId);
+    res.json({ success: true, restore: result });
+  } catch (e) { handleErr(e, res); }
+});
+
 if (process.env.NODE_ENV !== "production") {
   // Subscribe to every event and log it
   const ALL_EVENTS = Object.values(EVENT);
@@ -611,18 +651,40 @@ app.use((e: unknown, _req: Request, res: Response, _next: NextFunction) => {
   handleErr(e, res);
 });
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`
   ┌──────────────────────────────────────────┐
   │   commit&conquer API                     │
   │                                          │
-  │   Store:  http://localhost:${PORT}/api/store  │
-  │   Admin:  http://localhost:${PORT}/api/admin  │
-  │   Health: http://localhost:${PORT}/health     │
+  │   Store:  http://localhost:${PORT}/api/v1/store  │
+  │   Admin:  http://localhost:${PORT}/api/v1/admin  │
+  │   Health: http://localhost:${PORT}/health        │
   │                                          │
   │   ENV: ${process.env.NODE_ENV ?? "development"}                     │
   └──────────────────────────────────────────┘
   `);
+
+  startBackupScheduler(backupService);
+  void runStartupBackup(backupService);
 });
+
+async function shutdown(signal: string): Promise<void> {
+  console.log(`[Server] Received ${signal}, shutting down...`);
+  stopBackupScheduler();
+
+  try {
+    if (backupService.getConfig().enabled) {
+      await backupService.runBackup("shutdown");
+    }
+  } catch (error) {
+    console.error("[Server] Shutdown backup failed:", error);
+  }
+
+  closeDatabase();
+  server.close(() => process.exit(0));
+}
+
+process.on("SIGTERM", () => { void shutdown("SIGTERM"); });
+process.on("SIGINT", () => { void shutdown("SIGINT"); });
 
 export default app;

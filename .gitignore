@@ -1,3 +1,4 @@
 node_modules
 eval_results/
 .lighthouseci/
+data/

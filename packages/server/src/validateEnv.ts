@@ -92,8 +92,70 @@ const ENV_VARS: EnvVarRule[] = [
     required: false,
     description: "Database connection string (required in production)",
     validate: (v) => {
-      if (v && !v.startsWith("postgres://") && !v.startsWith("postgresql://") && !v.startsWith("mysql://") && !v.startsWith("mongodb://") && !v.startsWith("mongodb+srv://")) {
-        return "Must be a valid database connection URI (postgres://, mysql://, mongodb://)";
+      if (
+        v &&
+        !v.startsWith("postgres://") &&
+        !v.startsWith("postgresql://") &&
+        !v.startsWith("mysql://") &&
+        !v.startsWith("mongodb://") &&
+        !v.startsWith("mongodb+srv://") &&
+        !v.startsWith("file:")
+      ) {
+        return "Must be a valid database connection URI (postgres://, mysql://, mongodb://, file:)";
+      }
+    },
+  },
+  {
+    name: "SQLITE_PATH",
+    required: false,
+    description: "Path to the SQLite database file used for persistence and backups",
+    defaultValue: "data/commit-conquer.db",
+  },
+  {
+    name: "BACKUP_DIR",
+    required: false,
+    description: "Directory where SQLite backup snapshots are stored",
+    defaultValue: "data/backups",
+  },
+  {
+    name: "BACKUP_INTERVAL_MS",
+    required: false,
+    description: "Interval between automated backups in milliseconds",
+    defaultValue: "3600000",
+    validate: (v) => {
+      const n = parseInt(v, 10);
+      if (isNaN(n) || n < 60_000) return "Must be at least 60000 (1 minute)";
+    },
+  },
+  {
+    name: "BACKUP_RETENTION_COUNT",
+    required: false,
+    description: "Maximum number of backup snapshots to retain",
+    defaultValue: "24",
+    validate: (v) => {
+      const n = parseInt(v, 10);
+      if (isNaN(n) || n < 1 || n > 500) return "Must be between 1 and 500";
+    },
+  },
+  {
+    name: "BACKUP_ENABLED",
+    required: false,
+    description: "Enable automated SQLite backups (true | false)",
+    defaultValue: "true",
+    validate: (v) => {
+      if (!["true", "false", "1", "0", "yes", "no", "on", "off"].includes(v.toLowerCase())) {
+        return 'Must be "true" or "false"';
+      }
+    },
+  },
+  {
+    name: "BACKUP_ON_STARTUP",
+    required: false,
+    description: "Run a backup when the server starts",
+    defaultValue: "true",
+    validate: (v) => {
+      if (!["true", "false", "1", "0", "yes", "no", "on", "off"].includes(v.toLowerCase())) {
+        return 'Must be "true" or "false"';
       }
     },
   },

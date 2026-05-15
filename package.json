@@ -10,10 +10,12 @@
 	"scripts": {
 		"dev": "echo \"Run individual app dev scripts from their directories\"",
 		"start:server": "ts-node packages/server/index.ts",
+		"backup:run": "ts-node packages/server/scripts/run-backup.ts",
 		"lint": "eslint packages/server/ apps/storefront/src/ --ext .ts,.tsx",
 		"lint:fix": "eslint packages/server/ apps/storefront/src/ --ext .ts,.tsx --fix"
 	},
 	"dependencies": {
+		"better-sqlite3": "^11.10.0",
 		"cors": "^2.8.6",
 		"dotenv": "^17.4.2",
 		"express": "^5.2.1",
@@ -21,6 +23,7 @@
 		"morgan": "^1.10.1"
 	},
 	"devDependencies": {
+		"@types/better-sqlite3": "^7.6.13",
 		"@types/cors": "^2.8.19",
 		"@types/express": "^5.0.6",
 		"@types/morgan": "^1.9.10",
