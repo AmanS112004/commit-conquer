@@ -117,14 +117,23 @@ function CartProvider({ children }) {
     },
   });
 
-  const state = useMemo(() => ({
-    items: cartData?.items ?? [],
-    total: cartData?.total ?? 0,
-    count: cartData?.items.reduce((n, i) => n + i.quantity, 0) ?? 0,
-    isOpen,
-    isLoading,
-    cart_id: cartId,
-  }), [cartData, isOpen, isLoading, cartId]);
+  const state = useMemo(() => {
+    const items = cartData?.items ?? [];
+    const count = items.reduce((n, i) => n + i.quantity, 0);
+    // Use backend total if available, otherwise calculate it to avoid hydration flicker
+    const total = (cartData && typeof cartData.total === 'number') 
+      ? cartData.total 
+      : items.reduce((s, i) => s + i.price * i.quantity, 0);
+
+    return {
+      items,
+      total,
+      count,
+      isOpen,
+      isLoading,
+      cart_id: cartId,
+    };
+  }, [cartData, isOpen, isLoading, cartId]);
 
   const dispatch = useMemo(() => ({
     addItem: (item) => addItemMut.mutate(item),

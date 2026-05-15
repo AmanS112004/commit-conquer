@@ -36,6 +36,7 @@ export interface RefundInput {
 
 
 const orders = new Map<string, Order>();
+const cartOrderMap = new Map<string, string>(); // cart_id -> order_id
 
 
 
@@ -208,8 +209,20 @@ export const OrderService = {
 
 
   async place(input: PlaceOrderInput): Promise<Order> {
-    
+    // Check if an order already exists for this cart (Idempotency)
+    const existingOrderId = cartOrderMap.get(input.cart_id);
+    if (existingOrderId) {
+      return OrderService.getById(existingOrderId);
+    }
+
     const { cart, order_id } = await CartService.complete(input.cart_id);
+    
+    // Double check after async completion
+    if (cartOrderMap.has(input.cart_id)) {
+      return OrderService.getById(cartOrderMap.get(input.cart_id)!);
+    }
+
+    cartOrderMap.set(input.cart_id, order_id);
 
     
     const items: OrderItem[] = cart.items.map((ci) => ({

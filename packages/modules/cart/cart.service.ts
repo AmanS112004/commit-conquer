@@ -269,7 +269,9 @@ export const CartService = {
       throw new ServiceError("EMPTY_CART", "Cannot complete an empty cart");
     }
 
-    
+    // Remove from active carts IMMEDIATELY to prevent race conditions
+    carts.delete(cartId);
+
     await sleep(200);
 
     const orderId = generateId("ord");
@@ -278,9 +280,6 @@ export const CartService = {
       cart_id:  cartId,
       order_id: orderId,
     });
-
-    // Remove from active carts
-    carts.delete(cartId);
 
     return { cart, order_id: orderId };
   },

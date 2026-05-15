@@ -284,7 +284,7 @@ const STEPS: { key: Step; label: string }[] = [
 
 
 export default function CheckoutForm() {
-  const { items, total } = useCartState() ?? { items: [], total: 0 };
+  const { items, total, cart_id } = useCartState() ?? { items: [], total: 0, cart_id: null };
   const dispatch = useCartDispatch();
   const clearCart = dispatch.clearCart;
 
@@ -358,14 +358,32 @@ export default function CheckoutForm() {
   };
 
   const handlePlaceOrder = async () => {
+    if (isPlacing || !cart_id) return;
     setIsPlacing(true);
+    setErrors({});
     
-    await new Promise((r) => setTimeout(r, 1800));
-    const mockOrderId = `ORD-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
-    setOrderId(mockOrderId);
-    clearCart();
-    setStep("confirmed");
-    setIsPlacing(false);
+    try {
+      const res = await fetch("http://localhost:4000/api/store/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cart_id, payment_provider: "manual" }),
+      });
+
+      const data = await res.json();
+      
+      if (!res.ok) {
+        throw new Error(data.error?.message || "Failed to place order");
+      }
+
+      setOrderId(data.order.id);
+      clearCart();
+      setStep("confirmed");
+    } catch (err: any) {
+      console.error("Checkout error:", err);
+      setErrors({ checkout: err.message });
+    } finally {
+      setIsPlacing(false);
+    }
   };
 
   const handleDiscount = () => {
@@ -726,16 +744,22 @@ export default function CheckoutForm() {
                   </div>
                 </div>
 
-                <div className="section-nav" style={{ marginTop: 24 }}>
-                  <button className="btn btn-ghost" onClick={() => setStep("payment")} style={{ flex: 1 }}>
-                    ← Back
-                  </button>
-                  <button
-                    className="btn btn-primary"
-                    onClick={handlePlaceOrder}
-                    disabled={isPlacing || (items as any[]).length === 0}
-                    style={{ flex: 2 }}
-                  >
+                <div className="section-nav" style={{ marginTop: 24, flexDirection: "column", gap: 12 }}>
+                  {errors.checkout && (
+                    <div style={{ color: "var(--red)", fontSize: 13, padding: "12px 16px", background: "var(--red-dim)", borderRadius: 8, width: "100%", textAlign: "center", border: "1px solid rgba(255,92,92,0.2)" }}>
+                      {errors.checkout}
+                    </div>
+                  )}
+                  <div style={{ display: "flex", width: "100%", gap: 16 }}>
+                    <button className="btn btn-ghost" onClick={() => setStep("payment")} style={{ flex: 1 }}>
+                      ← Back
+                    </button>
+                    <button
+                      className="btn btn-primary"
+                      onClick={handlePlaceOrder}
+                      disabled={isPlacing || (items as any[]).length === 0}
+                      style={{ flex: 2 }}
+                    >
                     {isPlacing ? (
                       <><div className="spinner" /> Placing order…</>
                     ) : (
