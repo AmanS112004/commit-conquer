@@ -1,6 +1,6 @@
 // apps/storefront/pages/admin/orders.tsx
-import { useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 
 const ADMIN   = "/api/admin";
 const HEADERS = { "Content-Type": "application/json", "X-Admin-Secret": "admin_dev_secret" };
@@ -48,14 +48,21 @@ async function fetchOrders(search = "", status = "all") {
 export default function AdminOrders() {
   const qc = useQueryClient();
   const [search, setSearch]   = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [status, setStatus]   = useState("all");
   const [expanded, setExpanded] = useState<string | null>(null);
   const [toast, setToast]     = useState<string | null>(null);
 
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
   const { data: orders = [], isLoading } = useQuery({
-    queryKey: ["admin-orders", search, status],
-    queryFn: () => fetchOrders(search, status),
+    queryKey: ["admin-orders", debouncedSearch, status],
+    queryFn: () => fetchOrders(debouncedSearch, status),
     staleTime: 10_000,
+    placeholderData: keepPreviousData,
   });
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 2500); };
