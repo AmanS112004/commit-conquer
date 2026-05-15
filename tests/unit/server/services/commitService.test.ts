@@ -5,39 +5,44 @@
 
 import {
   CommitService,
-  calculatePoints,
+  validateAndCalculatePoints,
 } from '../../../../packages/server/src/services/commitService';
 import { mockCommits } from '../../../fixtures/commits';
 
 // ---------------------------------------------------------------------------
 // calculatePoints — pure function, no setup needed
 // ---------------------------------------------------------------------------
-describe('calculatePoints()', () => {
-  const cases: [string, number][] = [
-    ['feat: add new feature',      10],
-    ['fix: resolve bug',            8],
-    ['perf: speed up query',        7],
-    ['refactor: clean up code',     6],
-    ['test: add unit tests',        5],
-    ['ci: add pipeline',            4],
-    ['docs: update readme',         3],
-    ['style: format file',          2],
-    ['chore: update deps',          2],
-    ['random message no prefix',    1],
-    ['',                            0],
+describe('validateAndCalculatePoints()', () => {
+  const cases: [string, number, boolean][] = [
+    ['feat: add new feature with enough length', 12, true], // len 34 > 30 (+2)
+    ['fix: resolve a serious bug here indeed',    10,  true], // len 31 > 30 (+2)
+    ['perf: speed up database query significantly and also optimize indices', 12,  true], // len 52 > 50 (+5) -> 7+5=12
+    ['refactor: clean up technical debt',          6,  true], // len 23 < 30
+    ['test: add unit tests for services',          5,  true], // len 22 < 30
+    ['ci: add pipeline for automated tests',       6,  true], // len 32 > 30 (+2)
+    ['docs: update the readme documentation',      5,  true], // len 31 > 30 (+2)
+    ['style: format all files in src',             2,  true], // len 20 < 30
+    ['chore: update dependencies to latest',       2,  true], // len 26 < 30
+    ['random message that is long enough to be valid', 1, true],
+    ['abc',                                         0, false], // < 5
+    ['',                                            0, false],
   ];
 
-  it.each(cases)('"%s" → %d points', (message, expected) => {
-    expect(calculatePoints(message)).toBe(expected);
+  it.each(cases)('"%s" → %d points (valid: %p)', (message, expectedPoints, expectedValid) => {
+    const result = validateAndCalculatePoints(message);
+    expect(result.points).toBe(expectedPoints);
+    expect(result.isValid).toBe(expectedValid);
   });
 
   it('is case-insensitive for prefix matching', () => {
-    expect(calculatePoints('FEAT: upper case')).toBe(10);
-    expect(calculatePoints('Fix: mixed case')).toBe(8);
+    expect(validateAndCalculatePoints('FEAT: brand new feature for users').points).toBe(10);
+    expect(validateAndCalculatePoints('Fix: critical security patch applied').points).toBe(10); // 8 + 2
   });
 
-  it('returns 0 for empty string', () => {
-    expect(calculatePoints('')).toBe(0);
+  it('returns 0 points and isValid: false for empty string', () => {
+    const result = validateAndCalculatePoints('');
+    expect(result.points).toBe(0);
+    expect(result.isValid).toBe(false);
   });
 });
 
@@ -50,7 +55,7 @@ describe('CommitService', () => {
   beforeEach(() => {
     service = new CommitService();
     // Reset to known fixture data before each test
-    service._reset([...mockCommits.map((c) => ({ ...c }))]);
+    service._reset([...mockCommits.map((c) => ({ ...c, hash: 'mock-hash-' + c.id }))]);
   });
 
   // ---- findAll ----
@@ -111,6 +116,7 @@ describe('CommitService', () => {
       const commit = await service.create({
         message: 'feat: brand new thing',
         repo: 'my-repo',
+        hash: 'abcdef123456',
         authorId: 'user-1',
       });
       expect(commit.id).toBeTruthy();
@@ -120,8 +126,9 @@ describe('CommitService', () => {
 
     it('assigns 1 point for non-conventional commit message', async () => {
       const commit = await service.create({
-        message: 'random commit message',
+        message: 'random commit message that is long enough',
         repo: 'my-repo',
+        hash: 'abcdef123457',
         authorId: 'user-1',
       });
       expect(commit.points).toBe(1);
@@ -129,20 +136,21 @@ describe('CommitService', () => {
 
     it('throws 400 AppError for empty message', async () => {
       await expect(
-        service.create({ message: '', repo: 'repo', authorId: 'user-1' }),
+        service.create({ message: '', repo: 'repo', hash: '1234567', authorId: 'user-1' }),
       ).rejects.toMatchObject({ statusCode: 400 });
     });
 
     it('throws 400 AppError for whitespace-only message', async () => {
       await expect(
-        service.create({ message: '   ', repo: 'repo', authorId: 'user-1' }),
+        service.create({ message: '   ', repo: 'repo', hash: '1234567', authorId: 'user-1' }),
       ).rejects.toMatchObject({ statusCode: 400 });
     });
 
     it('persists the new commit so findById can retrieve it', async () => {
       const created = await service.create({
-        message: 'fix: persist test',
+        message: 'fix: persist test with enough length',
         repo: 'repo',
+        hash: 'abcdef123458',
         authorId: 'user-1',
       });
       const found = await service.findById(created.id);
@@ -151,9 +159,22 @@ describe('CommitService', () => {
 
     it('increments total count after creation', async () => {
       const before = (await service.findAll()).total;
-      await service.create({ message: 'fix: bump', repo: 'repo', authorId: 'user-1' });
+      await service.create({
+        message: 'fix: bump with enough length for validation',
+        repo: 'repo',
+        hash: 'abcdef123459',
+        authorId: 'user-1',
+      });
       const after = (await service.findAll()).total;
       expect(after).toBe(before + 1);
+    });
+
+    it('throws 409 AppError for duplicate hash', async () => {
+      const msg = 'feat: unique message for duplication test';
+      await service.create({ message: msg, repo: 'repo', hash: 'hash123', authorId: 'user-1' });
+      await expect(
+        service.create({ message: 'feat: another message', repo: 'repo', hash: 'hash123', authorId: 'user-1' }),
+      ).rejects.toMatchObject({ statusCode: 409 });
     });
   });
 

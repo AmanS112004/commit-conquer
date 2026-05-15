@@ -5,17 +5,26 @@ import { OrderService }     from "../../modules/orders/order.service.ts";
 import { InventoryService } from "../../modules/inventory/inventory.service.ts";
 import { DiscountService }  from "../../modules/discounts/discount.service.ts";
 import { ShippingService }  from "../../modules/shipping/shipping.service.ts";
+<<<<<<< HEAD
 import { AuthService }      from "../../modules/auth/auth.service.ts";
 
 export const adminRouter = express.Router();
 
 // ─── Admin Auth Middleware ──────────────────────────────────────────────────
 const adminOnly = (req: any, res: any, next: any) => {
+=======
+
+export const adminRouter = express.Router();
+
+// Mock Admin Auth Middleware
+adminRouter.use((req, res, next) => {
+>>>>>>> fix/issue-124
   const secret = req.headers["x-admin-secret"];
   if (secret !== "admin_dev_secret" && process.env.NODE_ENV !== "development") {
     return res.status(403).json({ error: { code: "FORBIDDEN", message: "Admin access required" } });
   }
   next();
+<<<<<<< HEAD
 };
 
 adminRouter.use(adminOnly);
@@ -31,6 +40,25 @@ const handleErr = (e: any, res: any) => {
 };
 
 // ─── Dashboard & Stats ──────────────────────────────────────────────────────
+=======
+});
+
+const handleErr = (e: any, res: any) => {
+  console.error("[AdminRouter] Error:", e);
+  res.status(e.status || 400).json({ error: { code: e.code || "ERROR", message: e.message } });
+};
+
+// ─── Dashboard ──────────────────────────────────────────────────────────────
+
+adminRouter.get("/dashboard/stats", (_req, res) => {
+  try {
+    const orders = OrderService.list({ limit: 1000 }).data;
+    const totalRevenue = orders.reduce((s, o) => s + (o.payment_status === "captured" ? o.total : 0), 0);
+    const orderCount = orders.length;
+    res.json({ stats: { totalRevenue, orderCount, activeCarts: 12 } });
+  } catch (e) { handleErr(e, res); }
+});
+>>>>>>> fix/issue-124
 
 adminRouter.get("/stats", (_req, res) => {
   try {
@@ -40,6 +68,7 @@ adminRouter.get("/stats", (_req, res) => {
   } catch (e) { handleErr(e, res); }
 });
 
+<<<<<<< HEAD
 // ─── Products ───────────────────────────────────────────────────────────────
 
 adminRouter.get("/products", (req, res) => {
@@ -51,14 +80,37 @@ adminRouter.get("/products", (req, res) => {
       category: req.query.category as string,
       search:   req.query.search   as string,
       sort:     req.query.sort     as any || "newest",
+=======
+
+// ─── Orders ─────────────────────────────────────────────────────────────────
+
+adminRouter.get("/orders", (req, res) => {
+  try {
+    const result = OrderService.list({
+      offset: parseInt(String(req.query.offset ?? "0"), 10),
+      limit:  parseInt(String(req.query.limit  ?? "20"), 10),
+      status: req.query.status as any,
+      search: req.query.search as string,
+>>>>>>> fix/issue-124
     });
     res.json(result);
   } catch (e) { handleErr(e, res); }
 });
 
+<<<<<<< HEAD
 adminRouter.get("/products/:id", (req, res) => {
   try {
     res.json({ product: ProductService.getById(req.params.id) });
+=======
+adminRouter.post("/orders/:id/refund", async (req, res) => {
+  try {
+    const refund = await OrderService.refund({
+      order_id: req.params.id,
+      amount:   req.body.amount,
+      reason:   req.body.reason,
+    });
+    res.json({ refund });
+>>>>>>> fix/issue-124
   } catch (e) { handleErr(e, res); }
 });
 
@@ -76,6 +128,7 @@ adminRouter.patch("/products/:id", async (req, res) => {
   } catch (e) { handleErr(e, res); }
 });
 
+<<<<<<< HEAD
 adminRouter.delete("/products/:id", async (req, res) => {
   try {
     const result = await ProductService.delete(req.params.id);
@@ -90,6 +143,8 @@ adminRouter.delete("/products", async (req, res) => {
   } catch (e) { handleErr(e, res); }
 });
 
+=======
+>>>>>>> fix/issue-124
 adminRouter.post("/products/:id/publish", async (req, res) => {
   try {
     const product = await ProductService.publish(req.params.id);
@@ -112,6 +167,7 @@ adminRouter.patch("/products/:id/inventory", async (req, res) => {
   } catch (e) { handleErr(e, res); }
 });
 
+<<<<<<< HEAD
 // ─── Orders ─────────────────────────────────────────────────────────────────
 
 adminRouter.get("/orders", (req, res) => {
@@ -168,6 +224,8 @@ adminRouter.get("/customers/:id", (req, res) => {
 
 // ─── Discounts ──────────────────────────────────────────────────────────────
 
+=======
+>>>>>>> fix/issue-124
 adminRouter.get("/discounts", async (_req, res) => {
   try {
     const result = await DiscountService.list();
@@ -189,6 +247,7 @@ adminRouter.delete("/discounts/:id", async (req, res) => {
   } catch (e) { handleErr(e, res); }
 });
 
+<<<<<<< HEAD
 // ─── Inventory ──────────────────────────────────────────────────────────────
 
 adminRouter.get("/inventory", async (_req, res) => {
@@ -210,6 +269,8 @@ adminRouter.patch("/inventory/:variantId", async (req, res) => {
 
 // ─── Shipping ───────────────────────────────────────────────────────────────
 
+=======
+>>>>>>> fix/issue-124
 adminRouter.get("/shipping-options", async (_req, res) => {
   try {
     const options = await ShippingService.listOptions();
@@ -223,3 +284,53 @@ adminRouter.post("/shipping-options", async (req, res) => {
     res.status(201).json({ shipping_option: option });
   } catch (e) { handleErr(e, res); }
 });
+<<<<<<< HEAD
+=======
+
+adminRouter.post("/orders/:id/fulfill", async (req, res) => {
+  try {
+    const order = await OrderService.fulfill(req.params.id);
+    res.json({ order });
+  } catch (e) { handleErr(e, res); }
+});
+
+adminRouter.post("/orders/:id/cancel", async (req, res) => {
+  try {
+    const order = await OrderService.cancel(req.params.id);
+    res.json({ order });
+  } catch (e) { handleErr(e, res); }
+});
+
+
+// ─── Inventory ──────────────────────────────────────────────────────────────
+
+adminRouter.get("/inventory", async (_req, res) => {
+  try {
+    const items = await InventoryService.listAll();
+    res.json({ inventory: items });
+  } catch (e) { handleErr(e, res); }
+});
+
+adminRouter.patch("/inventory/:variantId", async (req, res) => {
+  try {
+    const item = await InventoryService.setStock(req.params.variantId, req.body.stocked_quantity);
+    res.json({ inventory: item });
+  } catch (e) { handleErr(e, res); }
+});
+
+// ─── Products ───────────────────────────────────────────────────────────────
+
+adminRouter.post("/products", async (req, res) => {
+  try {
+    const product = await ProductService.create(req.body);
+    res.status(201).json({ product });
+  } catch (e) { handleErr(e, res); }
+});
+
+adminRouter.patch("/products/:id", async (req, res) => {
+  try {
+    const product = await ProductService.update(req.params.id, req.body);
+    res.json({ product });
+  } catch (e) { handleErr(e, res); }
+});
+>>>>>>> fix/issue-124

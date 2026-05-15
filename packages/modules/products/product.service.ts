@@ -37,7 +37,16 @@ export interface UpdateProductInput {
   category?: string;
   tags?: string[];
   status?: "published" | "draft" | "archived";
+  variants?: Array<{
+    id?: string;
+    title: string;
+    sku: string;
+    price: number;
+    inventory_quantity: number;
+    options: Record<string, string>;
+  }>;
 }
+
 
 export const ProductService = {
   list(input: ListProductsInput = {}): PaginatedResponse<Product> {
@@ -124,7 +133,21 @@ export const ProductService = {
   },
 
   async update(id: string, input: UpdateProductInput): Promise<Product> {
-    ProductService.getById(id);
+    const existing = ProductService.getById(id);
+
+    // Reconcile variants to maintain ID stability if provided in update
+    if (input.variants) {
+      input.variants = input.variants.map((v: any) => {
+        // Find existing match to preserve ID
+        const match = existing.variants.find(
+          (ev) => (v.id && ev.id === v.id) || (v.sku && ev.sku === v.sku) || ev.title === v.title
+        );
+        return {
+          ...v,
+          id: match?.id || v.id || `var_${Math.random().toString(36).slice(2, 9)}`,
+        };
+      });
+    }
 
     const changes = stripEmpty(
       input as Record<string, unknown>,

@@ -13,6 +13,7 @@ const ProductDetail = lazy(() => import("./pages/product-detail"));
 const CollectionsPage = lazy(() => import("./pages/collections"));
 const AboutPage = lazy(() => import("./pages/about"));
 const AccountPage = lazy(() => import("./pages/account"));
+const LeaderboardPage = lazy(() => import("./pages/leaderboard"));
 
 
 const AdminLayout = lazy(() => import("./pages/admin/AdminLayout"));
@@ -60,6 +61,7 @@ createRoot(rootEl).render(
               />
               <Route path="/about" element={<AboutPage />} />
               <Route path="/account" element={<AccountPage />} />
+              <Route path="/leaderboard" element={<LeaderboardPage />} />
             </Route>
 
             
