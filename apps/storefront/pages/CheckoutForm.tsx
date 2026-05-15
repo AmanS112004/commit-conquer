@@ -270,7 +270,7 @@ const STEPS: { key: Step; label: string }[] = [
 export default function CheckoutForm() {
   const { items, total, cart_id } = useCartState() ?? { items: [], total: 0, cart_id: null };
   const dispatch = useCartDispatch();
-  const clearCart = dispatch.clearCart;
+  const clearCart: () => void = (dispatch as any)?.clearCart ?? (() => { });
 
   const [step, setStep] = useState<Step>("address");
   const [address, setAddress] = useState<AddressForm>(EMPTY_ADDRESS);
@@ -285,13 +285,20 @@ export default function CheckoutForm() {
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [discountError, setDiscountError] = useState<string | null>(null);
 
-  const TAX_RATE = 0.08875;
-  const subtotal = total; 
-  const discountAmt = discountApplied ? Math.round(subtotal * 0.1) : 0;
-  const shipping = shippingOption.price;
-  const tax = Math.round((subtotal - discountAmt) * TAX_RATE);
-  const grandTotal = subtotal - discountAmt + shipping + tax;
+  const TAX_RATE = 0.08;
+  const safeTotal = Number(total) || 0;
+  const safeShipping = Number(shippingOption?.price) || 0;
+  const subtotal = safeTotal * 100;
+  const discountAmt = discountApplied
+    ? Math.round(subtotal * 0.1)
+    : 0;
 
+  const shipping = subtotal > 0 ? safeShipping : 0;
+
+  const tax = Math.round((subtotal - discountAmt) * TAX_RATE);
+
+  const grandTotal =
+    subtotal - discountAmt + shipping + tax;
   const stepIdx = STEPS.findIndex((s) => s.key === step);
 
   const goTo = useCallback(
@@ -384,6 +391,13 @@ export default function CheckoutForm() {
     } finally {
       setIsPlacing(false);
     }
+
+    await new Promise((r) => setTimeout(r, 1800));
+    const mockOrderId = `ORD-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+    setOrderId(mockOrderId);
+    clearCart();
+    setStep("confirmed");
+    setIsPlacing(false);
   };
 
   const handleDiscount = () => {
@@ -417,7 +431,7 @@ export default function CheckoutForm() {
       setErrors((prev) => { const n = { ...prev }; delete n[field]; return n; });
     };
 
-  
+
   if (step === "confirmed") {
     return (
       <>
@@ -461,9 +475,9 @@ export default function CheckoutForm() {
         </div>
 
         <div className="checkout-inner">
-          
+
           <div className="checkout-form-col">
-            
+
             <div className="steps">
               {STEPS.map((s, i) => {
                 const isDone = i < stepIdx;
@@ -483,12 +497,12 @@ export default function CheckoutForm() {
               })}
             </div>
 
-            
+
             {step === "address" && (
               <div className="card">
                 <div className="card-title">
                   <svg className="card-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" />
                   </svg>
                   Shipping Address
                 </div>
@@ -574,12 +588,12 @@ export default function CheckoutForm() {
               </div>
             )}
 
-            
+
             {step === "shipping" && (
               <div className="card">
                 <div className="card-title">
                   <svg className="card-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>
+                    <rect x="1" y="3" width="15" height="13" /><polygon points="16 8 20 8 23 11 23 16 16 16 16 8" /><circle cx="5.5" cy="18.5" r="2.5" /><circle cx="18.5" cy="18.5" r="2.5" />
                   </svg>
                   Shipping Method
                 </div>
@@ -617,12 +631,12 @@ export default function CheckoutForm() {
               </div>
             )}
 
-            
+
             {step === "payment" && (
               <div className="card">
                 <div className="card-title">
                   <svg className="card-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/>
+                    <rect x="1" y="4" width="22" height="16" rx="2" ry="2" /><line x1="1" y1="10" x2="23" y2="10" />
                   </svg>
                   Payment Details
                 </div>
@@ -683,7 +697,7 @@ export default function CheckoutForm() {
 
                 <div className="security-note">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" />
                   </svg>
                   Payments are encrypted & secure
                 </div>
@@ -707,7 +721,7 @@ export default function CheckoutForm() {
               <div className="card">
                 <div className="card-title">
                   <svg className="card-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+                    <polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
                   </svg>
                   Review Your Order
                 </div>
@@ -896,7 +910,7 @@ export default function CheckoutForm() {
 
             <div className="security-note" style={{ marginTop: 16 }}>
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
               </svg>
               Protected by 256-bit SSL encryption
             </div>
